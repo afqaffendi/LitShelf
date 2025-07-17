@@ -3,7 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'login_page.dart'; // Make sure to import your login page
 
-// 1. Change to StatefulWidget
 class ProfilePage extends StatefulWidget {
   final bool isDarkMode;
   final void Function(bool) onToggleDarkMode;
@@ -20,30 +19,26 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  // 2. Add a TextEditingController for the name input
   late final TextEditingController _nameController;
+  bool _isSavingName = false; // New state variable for name saving loading
 
   @override
   void initState() {
     super.initState();
-    // Initialize the controller with the current user's display name
-    // If displayName is null, default to an empty string.
     _nameController = TextEditingController(text: _auth.currentUser?.displayName ?? '');
   }
 
   @override
   void dispose() {
-    _nameController.dispose(); // Dispose the controller to prevent memory leaks
+    _nameController.dispose();
     super.dispose();
   }
 
-  // Method to handle user logout (remains unchanged)
   Future<void> _logout(BuildContext context) async {
     await FirebaseAuth.instance.signOut();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('isLoggedIn'); // Assuming you use this key
+    await prefs.remove('isLoggedIn');
 
-    // Navigate to LoginPage and remove all previous routes
     if (context.mounted) {
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
@@ -54,189 +49,290 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  // 3. New method to change the user's display name
   Future<void> _changeDisplayName(BuildContext context) async {
     final user = _auth.currentUser;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     if (user == null) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error: User not logged in.')),
+          SnackBar(
+            content: const Text('Error: User not logged in.'),
+            backgroundColor: colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
       return;
     }
 
-    final newName = _nameController.text.trim(); // Get the new name from the text field
+    final newName = _nameController.text.trim();
     if (newName.isEmpty) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Name cannot be empty.')),
+          SnackBar(
+            content: const Text('Name cannot be empty.'),
+            backgroundColor: colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
       return;
     }
 
-    // Check if the new name is actually different from the current one
     if (newName == user.displayName) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Name is already the same.')),
+          SnackBar(
+            content: const Text('Name is already the same.'),
+            backgroundColor: colorScheme.tertiary, // Use a neutral color for info
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
       return;
     }
 
+    setState(() {
+      _isSavingName = true; // Show loading indicator
+    });
+
     try {
       await user.updateDisplayName(newName);
-      // Reload the user to get the updated display name immediately
-      await user.reload();
-      // Force a UI rebuild to reflect the new name
-      setState(() {});
+      await user.reload(); // Reload the user to get the updated display name
+      setState(() {}); // Trigger rebuild to show updated name immediately
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Name updated successfully!')),
+          SnackBar(
+            content: const Text('Name updated successfully!'),
+            backgroundColor: colorScheme.primary,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     } on FirebaseAuthException catch (e) {
       debugPrint('Error updating display name: ${e.code} - ${e.message}');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update name: ${e.message}')),
+          SnackBar(
+            content: Text('Failed to update name: ${e.message}'),
+            backgroundColor: colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     } catch (e) {
       debugPrint('An unexpected error occurred: $e');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('An unexpected error occurred.')),
+          SnackBar(
+            content: const Text('An unexpected error occurred.'),
+            backgroundColor: colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSavingName = false; // Hide loading indicator
+        });
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = _auth.currentUser; // Get current user here to ensure it's up-to-date
+    final user = _auth.currentUser;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: ListView(
+      backgroundColor: colorScheme.background, // Set background color from theme
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
-        children: [
-          // User Info Section
-          if (user != null)
-            Column(
-              children: [
-                const CircleAvatar(
-                  radius: 50,
-                  child: Icon(Icons.person, size: 50),
-                ),
-                const SizedBox(height: 16),
-                // Display current name, which will update after _changeDisplayName
-                Text(
-                  user.displayName ?? 'Anonymous User',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  user.email ?? 'No email available',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                      ),
-                ),
-              ],
-            ),
-          const SizedBox(height: 32),
-
-          // 4. Name Change Input Field and Button
-          Card(
-            margin: EdgeInsets.zero, // Remove default card margin
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch, // Stretch children horizontally
+          children: [
+            // User Info Section - Enhanced
+            if (user != null)
+              Column(
                 children: [
-                  Text(
-                    'Change Display Name',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _nameController,
-                    decoration: InputDecoration(
-                      labelText: 'New Display Name',
-                      hintText: 'Enter your desired name',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8.0),
-                      ),
-                      prefixIcon: const Icon(Icons.person_outline),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: ElevatedButton.icon(
-                      onPressed: () => _changeDisplayName(context),
-                      icon: const Icon(Icons.save_rounded),
-                      label: const Text('Save Name'),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    child: CircleAvatar(
+                      radius: 60,
+                      backgroundColor: colorScheme.primary, // Using primary for the main user avatar
+                      foregroundColor: colorScheme.onPrimary,
+                      child: Text(
+                        user.displayName?.isNotEmpty == true
+                            ? user.displayName![0].toUpperCase()
+                            : (user.email?.isNotEmpty == true
+                                ? user.email![0].toUpperCase()
+                                : '?'),
+                        style: theme.textTheme.displaySmall?.copyWith(
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  Text(
+                    user.displayName ?? 'Anonymous User',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onSurface,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    user.email ?? 'No email available',
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: colorScheme.onSurfaceVariant, // Use onSurfaceVariant for secondary text
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                 ],
               ),
-            ),
-          ),
-          const SizedBox(height: 24), // Space between name change card and other settings
+            const SizedBox(height: 32),
+            const Divider(height: 1, thickness: 1), // A divider to separate sections
+            const SizedBox(height: 32),
 
-          // Settings Section
-          // Removed: Original "Edit Profile" ListTile as it's replaced by the name change section
-          SwitchListTile(
-            title: const Text('Dark Mode'),
-            value: widget.isDarkMode, // Use widget.isDarkMode since it's in the State class
-            onChanged: widget.onToggleDarkMode, // Use widget.onToggleDarkMode
-            secondary: Icon(
-              widget.isDarkMode ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
-            ),
-          ),
-          // 5. Removed: The "About" ListTile
-          // ListTile(
-          //   leading: const Icon(Icons.info_outline),
-          //   title: const Text('About'),
-          //   trailing: const Icon(Icons.arrow_forward_ios),
-          //   onTap: () {
-          //     // TODO: Navigate to an about screen
-          //   },
-          // ),
-
-          const SizedBox(height: 32),
-
-          // Logout Button (remains unchanged)
-          ElevatedButton.icon(
-            icon: const Icon(Icons.logout_rounded),
-            label: const Text('Logout'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-              foregroundColor: Theme.of(context).colorScheme.onError,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+            // Change Display Name Card
+            Card(
+              elevation: 2.0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              color: colorScheme.surfaceContainerLow, // Lighter surface for card
+              child: Padding(
+                padding: const EdgeInsets.all(20.0), // Increased padding inside card
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Update Profile',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    TextFormField(
+                      controller: _nameController,
+                      decoration: InputDecoration(
+                        labelText: 'Your Name',
+                        hintText: 'Enter your full name',
+                        prefixIcon: Icon(Icons.person_rounded, color: colorScheme.primary),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: colorScheme.outline),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: colorScheme.primary, width: 2),
+                        ),
+                        filled: true,
+                        fillColor: colorScheme.surfaceContainerHighest,
+                      ),
+                      textInputAction: TextInputAction.done, // Change keyboard action to done
+                      onFieldSubmitted: (_) => _changeDisplayName(context), // Trigger save on done
+                    ),
+                    const SizedBox(height: 20),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: FilledButton.icon(
+                        onPressed: _isSavingName ? null : () => _changeDisplayName(context),
+                        icon: _isSavingName
+                            ? SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  color: colorScheme.onPrimary,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.save_rounded),
+                        label: Text(_isSavingName ? 'Saving...' : 'Save Name'),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                          backgroundColor: colorScheme.primary,
+                          foregroundColor: colorScheme.onPrimary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          textStyle: theme.textTheme.titleMedium,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            onPressed: () => _logout(context),
-          ),
-        ],
+            const SizedBox(height: 32),
+
+            // Theme Settings Card
+            Card(
+              elevation: 2.0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              color: colorScheme.surfaceContainerLow,
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'App Preferences',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SwitchListTile(
+                      title: Text(
+                        'Dark Mode',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      value: widget.isDarkMode,
+                      onChanged: widget.onToggleDarkMode,
+                      secondary: Icon(
+                        widget.isDarkMode ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+                        color: colorScheme.primary, // Icon color matches primary
+                      ),
+                      activeColor: colorScheme.primary, // Active switch color
+                      tileColor: Colors.transparent, // Ensure tile background is transparent to show card color
+                      contentPadding: EdgeInsets.zero, // Remove default content padding
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            // Logout Button
+            FilledButton.icon(
+              icon: const Icon(Icons.logout_rounded),
+              label: const Text('Logout'),
+              style: FilledButton.styleFrom(
+                backgroundColor: colorScheme.error,
+                foregroundColor: colorScheme.onError,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                textStyle: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              onPressed: () => _logout(context),
+            ),
+          ],
+        ),
       ),
     );
   }

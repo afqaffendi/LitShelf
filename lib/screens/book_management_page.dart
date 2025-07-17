@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:litshelf2/screens/edit_book_page.dart';
+import 'package:litshelf2/screens/edit_book_page.dart'; // Ensure this import is correct
 
 class ManageBooksPage extends StatelessWidget {
   const ManageBooksPage({super.key});
@@ -8,32 +8,37 @@ class ManageBooksPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // ✅ No change to booksRef initialization
+    final colorScheme = theme.colorScheme; // Get colorScheme for easier access
+
     final CollectionReference booksRef = FirebaseFirestore.instance.collection('ebooks');
 
     return Scaffold(
-      // The Scaffold's default background color (theme.scaffoldBackgroundColor or theme.colorScheme.background)
-      // will be the main background, which is typically a subtle white/light grey or black/dark grey.
+      // Use theme's background color (usually surface or background)
+      backgroundColor: colorScheme.background, // A common choice for Scaffold background
       appBar: AppBar(
         title: Text(
           'Manage Books',
-          style: theme.textTheme.titleLarge?.copyWith(
+          // Consistent title style with other pages
+          style: theme.textTheme.headlineSmall?.copyWith( // Using headlineSmall for consistency
             fontWeight: FontWeight.bold,
-            color: theme.colorScheme.onPrimary, // Text color on primary AppBar background
+            // Title color should be onPrimaryContainer if AppBar is primaryContainer
+            color: colorScheme.onPrimaryContainer,
           ),
         ),
-        backgroundColor: theme.colorScheme.primary, // Solid primary color for AppBar
-        iconTheme: IconThemeData(color: theme.colorScheme.onPrimary), // Back button icon color
-        centerTitle: true,
-        elevation: 4, // Added subtle shadow to differentiate from body
+        // Consistent AppBar background color
+        backgroundColor: colorScheme.primaryContainer, // Use theme's primaryContainer
+        // Consistent icon theme for back button and other icons
+        foregroundColor: colorScheme.onPrimaryContainer, // Ensures icons and text contrast primaryContainer
+        centerTitle: true, // Consistent title alignment
+        elevation: 0, // Consistent with M3, often no elevation when scrolled to top
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: booksRef.snapshots(), // ✅ No change to stream query or collection
+        stream: booksRef.snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Center(
               child: CircularProgressIndicator(
-                color: theme.colorScheme.primary, // Loading indicator color
+                color: colorScheme.primary, // Loading indicator color from theme
               ),
             );
           }
@@ -45,12 +50,12 @@ class ManageBooksPage extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.error_outline_rounded, size: 60, color: theme.colorScheme.error),
+                    Icon(Icons.error_outline_rounded, size: 60, color: colorScheme.error),
                     const SizedBox(height: 16),
                     Text(
-                      'Error loading books.', // ✅ Original text
+                      'Error loading books.',
                       style: theme.textTheme.titleMedium?.copyWith(
-                        color: theme.colorScheme.error,
+                        color: colorScheme.error,
                         fontWeight: FontWeight.bold,
                       ),
                       textAlign: TextAlign.center,
@@ -58,7 +63,7 @@ class ManageBooksPage extends StatelessWidget {
                     Text(
                       'Please check your connection and try again.',
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onBackground.withOpacity(0.7),
+                        color: colorScheme.onBackground.withOpacity(0.7),
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -68,7 +73,7 @@ class ManageBooksPage extends StatelessWidget {
             );
           }
 
-          final books = snapshot.data?.docs ?? []; // ✅ No change to data retrieval
+          final books = snapshot.data?.docs ?? [];
 
           if (books.isEmpty) {
             return Center(
@@ -77,20 +82,20 @@ class ManageBooksPage extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.book_outlined, size: 60, color: theme.colorScheme.onBackground),
+                    Icon(Icons.book_outlined, size: 60, color: colorScheme.onBackground.withOpacity(0.6)), // Muted icon color
                     const SizedBox(height: 16),
                     Text(
-                      'No books found.', // ✅ Original text
+                      'No books found.',
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.onBackground,
+                        color: colorScheme.onBackground,
                       ),
                       textAlign: TextAlign.center,
                     ),
                     Text(
                       'Add new books to manage your collection.',
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onBackground.withOpacity(0.7),
+                        color: colorScheme.onBackground.withOpacity(0.7),
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -101,90 +106,142 @@ class ManageBooksPage extends StatelessWidget {
           }
 
           return ListView.builder(
-            padding: const EdgeInsets.all(16.0), // Standard padding
+            padding: const EdgeInsets.all(16.0),
             itemCount: books.length,
             itemBuilder: (context, index) {
               final book = books[index];
               final title = book['title'] ?? 'Untitled';
               final author = book['author'] ?? 'Unknown';
-              // ✅ No change to data access or variables
+              final description = book['description'] ?? 'No description available'; // Assuming description field exists
 
               return Card(
-                elevation: 4,
+                elevation: 2, // Consistent subtle elevation for cards
                 margin: const EdgeInsets.only(bottom: 16),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(12), // Consistent rounded corners
                 ),
-                color: theme.cardColor, // Card background color
+                color: colorScheme.surfaceContainerLow, // Consistent card background color
                 child: InkWell( // Add InkWell for tap feedback on the entire card
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(12), // Match card border radius
                   onTap: () {
-                    // Optional: You could navigate to an edit page or show details here,
-                    // but keeping it empty to adhere to 'no function change' for now.
+                    // Navigate to EditBookPage when card is tapped
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => EditBookPage(
+                          bookId: book.id,
+                          currentTitle: title,
+                          currentAuthor: author,
+                          currentDescription: description,
+                        ),
+                      ),
+                    );
                   },
                   child: Padding( // Add padding around the ListTile content
-                    padding: const EdgeInsets.symmetric(vertical: 8.0), // Adjust padding for a slightly larger tile
+                    padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0), // Adjust padding for a slightly larger tile
                     child: ListTile(
                       leading: Icon(
                         Icons.library_books_rounded, // Themed icon for book entry
-                        color: theme.colorScheme.primary, // Icon color from theme
+                        color: colorScheme.primary, // Icon color from theme
                         size: 32,
                       ),
                       title: Text(
                         title,
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.onSurface, // Text color on card surface
+                          color: colorScheme.onSurface, // Text color on card surface
                         ),
                       ),
                       subtitle: Text(
                         'Author: $author',
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.7), // Subtitle color on card surface
+                          color: colorScheme.onSurfaceVariant, // Subtitle color on card surface
                         ),
                       ),
                       trailing: PopupMenuButton<String>(
                         icon: Icon(
                           Icons.more_vert_rounded, // Rounded more icon
-                          color: theme.colorScheme.onSurface, // Icon color from theme
+                          color: colorScheme.onSurfaceVariant, // Icon color from theme
                         ),
                         onSelected: (value) {
-                          // ✅ No change to onSelected logic, keeping delete and future edit
                           if (value == 'delete') {
-                            booksRef.doc(book.id).delete();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Book "$title" deleted.'),
-                                backgroundColor: theme.colorScheme.error, // Use theme error color
-                              ),
+                            // Show confirmation dialog before deleting
+                            showDialog(
+                              context: context,
+                              builder: (BuildContext context) {
+                                return AlertDialog(
+                                  title: Text(
+                                    'Confirm Delete',
+                                    style: theme.textTheme.titleLarge?.copyWith(
+                                      color: colorScheme.onSurface,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  content: Text(
+                                    'Are you sure you want to delete "$title"?',
+                                    style: theme.textTheme.bodyLarge?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  actions: <Widget>[
+                                    TextButton(
+                                      child: Text(
+                                        'Cancel',
+                                        style: TextStyle(color: colorScheme.primary),
+                                      ),
+                                      onPressed: () {
+                                        Navigator.of(context).pop();
+                                      },
+                                    ),
+                                    FilledButton( // Consistent button style
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: colorScheme.error,
+                                        foregroundColor: colorScheme.onError,
+                                      ),
+                                      child: const Text('Delete'),
+                                      onPressed: () {
+                                        booksRef.doc(book.id).delete();
+                                        Navigator.of(context).pop(); // Close dialog
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text('Book "$title" deleted.'),
+                                            backgroundColor: colorScheme.primary, // Use theme primary color for success
+                                            behavior: SnackBarBehavior.floating, // Consistent snackbar behavior
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                );
+                              },
                             );
                           } else if (value == 'edit') {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => EditBookPage(
-        bookId: book.id,
-        currentTitle: title,
-        currentAuthor: author, currentDescription: '',
-      ),
-    ),
-  );
-}
-
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => EditBookPage(
+                                  bookId: book.id,
+                                  currentTitle: title,
+                                  currentAuthor: author,
+                                  currentDescription: description,
+                                ),
+                              ),
+                            );
+                          }
                         },
                         itemBuilder: (context) => [
                           PopupMenuItem(
                             value: 'edit',
                             child: Text(
                               'Edit',
-                              style: TextStyle(color: theme.colorScheme.onSurface), // Text color for popup menu item
+                              style: TextStyle(color: colorScheme.onSurface), // Text color for popup menu item
                             ),
                           ),
                           PopupMenuItem(
                             value: 'delete',
                             child: Text(
                               'Delete',
-                              style: TextStyle(color: theme.colorScheme.error), // Error color for delete
+                              style: TextStyle(color: colorScheme.error), // Error color for delete
                             ),
                           ),
                         ],
@@ -197,6 +254,31 @@ class ManageBooksPage extends StatelessWidget {
           );
         },
       ),
+      // Floating Action Button for adding new books
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          // TODO: Navigate to an Add Book page (placeholder for now)
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Add new book functionality not yet implemented.'),
+              backgroundColor: colorScheme.secondary,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        },
+        label: Text(
+          'Add New Book',
+          style: theme.textTheme.titleMedium?.copyWith(color: colorScheme.onPrimary),
+        ),
+        icon: const Icon(Icons.add_rounded),
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16), // Rounded corners for FAB
+        ),
+        elevation: 4,
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat, // Center the FAB
     );
   }
 }

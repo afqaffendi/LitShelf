@@ -1,19 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:litshelf2/screens/view_users_page.dart';
 import 'package:shimmer/shimmer.dart';
+import 'manage_account_page.dart';
 
 import 'ebook_list_page.dart';
 import 'firestore_service.dart';
 import 'profile_page.dart';
-import 'add_ebook_page.dart';
+import 'add_book_page.dart';
 
 class DashboardPage extends StatefulWidget {
+
+  final String role;
   final bool isDarkMode;
   final void Function(bool) onToggleDarkMode;
 
   const DashboardPage({
     super.key,
+    required this.role,
     required this.isDarkMode,
     required this.onToggleDarkMode,
   });
@@ -24,6 +29,7 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   int _selectedIndex = 0;
+  
   final PageController _pageController = PageController();
   final FirestoreService _firestoreService = FirestoreService();
   final User? _currentUser = FirebaseAuth.instance.currentUser;
@@ -46,7 +52,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
-          .doc(_currentUser!.uid)
+          .doc(_currentUser.uid)
           .get();
 
       setState(() {
@@ -76,7 +82,8 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   static const List<String> _pageTitles = ['Home', 'Discover', 'Profile'];
-
+  static const List<String> _librarianTitles = ['Home', 'Discover', 'Accounts', 'Profile'];
+  
   @override
   Widget build(BuildContext context) {
     if (_isLoadingRole) {
@@ -87,11 +94,26 @@ class _DashboardPageState extends State<DashboardPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_pageTitles[_selectedIndex]),
+        title: Text(
+  (_userRole == 'librarian' ? _librarianTitles : _pageTitles)[_selectedIndex],
+),
         elevation: 0,
         backgroundColor: Colors.transparent,
         foregroundColor: Theme.of(context).colorScheme.onSurface,
         actions: [
+
+          if (_userRole == 'librarian')
+  IconButton(
+    icon: const Icon(Icons.supervisor_account),
+    tooltip: 'View All Users',
+    onPressed: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ViewUsersPage()),
+      );
+    },
+  ),
+
           IconButton(
             icon: Icon(
               widget.isDarkMode
@@ -108,30 +130,60 @@ class _DashboardPageState extends State<DashboardPage> {
         onPageChanged: (index) {
           setState(() => _selectedIndex = index);
         },
-        children: <Widget>[
-          _DashboardHomeView(
-            firestoreService: _firestoreService,
-            currentUser: _currentUser,
-          ),
-          const EbookListPage(),
-          ProfilePage(
-            isDarkMode: widget.isDarkMode,
-            onToggleDarkMode: widget.onToggleDarkMode,
-          ),
-        ],
+children: _userRole == 'librarian'
+    ? [
+        _DashboardHomeView(
+          firestoreService: _firestoreService,
+          currentUser: _currentUser,
+        ),
+        const EbookListPage(),
+        const ManageAccountPage(), // add this line
+        ProfilePage(
+          isDarkMode: widget.isDarkMode,
+          onToggleDarkMode: widget.onToggleDarkMode,
+        ),
+      ]
+    : [
+        _DashboardHomeView(
+          firestoreService: _firestoreService,
+          currentUser: _currentUser,
+        ),
+        const EbookListPage(),
+        ProfilePage(
+          isDarkMode: widget.isDarkMode,
+          onToggleDarkMode: widget.onToggleDarkMode,
+        ),
+      ],
+
       ),
       bottomNavigationBar: _buildFloatingNavBar(context),
-      floatingActionButton: (!_isLoadingRole && _userRole == 'librarian')
-          ? FloatingActionButton.extended(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const AddEbookPage()),
-                );
-              },
-              icon: const Icon(Icons.add),
-              label: const Text('Add Book'),
-            )
-          : null,
+      floatingActionButton: (!_isLoadingRole && (_userRole == 'author' || _userRole == 'librarian'))
+
+    ? FloatingActionButton.extended(
+        onPressed: () {
+          // Ensure AddBookPage is imported if it's not already
+          // import 'package:litshelf2/screens/add_book_page.dart'; // Example path
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const AddBookPage()),
+          );
+        },
+        // Enhanced Design Properties
+        backgroundColor: Theme.of(context).colorScheme.secondary, // Or primary, depending on desired accent
+        foregroundColor: Theme.of(context).colorScheme.onSecondary, // Text/icon color for contrast
+        elevation: 8.0, // A bit more elevation for a pronounced floating effect
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16.0), // Slightly more rounded corners
+        ),
+        icon: const Icon(Icons.add_rounded), // Using a filled/rounded icon for modern look
+        label: Text(
+          'Add Book',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold, // Make text bolder
+                color: Theme.of(context).colorScheme.onSecondary, // Ensure text color is consistent
+              ),
+        ),
+      )
+    : null,
     );
   }
 
@@ -464,7 +516,7 @@ class _WishlistShimmerLoader extends StatelessWidget {
 }
 
 class _EmptyWishlist extends StatelessWidget {
-  const _EmptyWishlist({super.key});
+  const _EmptyWishlist();
 
   @override
   Widget build(BuildContext context) {

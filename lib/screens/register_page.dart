@@ -1,51 +1,74 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:litshelf2/screens/register_page.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+class RegisterPage extends StatefulWidget {
+  final VoidCallback onRegisterSuccess;
 
-class LoginPage extends StatefulWidget {
-  final VoidCallback onLoginSuccess;
-
-  const LoginPage({
+  const RegisterPage({
     Key? key,
-    required this.onLoginSuccess,
+    required this.onRegisterSuccess,
   }) : super(key: key);
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  State<RegisterPage> createState() => _RegisterPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _RegisterPageState extends State<RegisterPage> {
   final _auth = FirebaseAuth.instance;
+  final _firestore = FirebaseFirestore.instance;
+
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+
+  final List<String> _roles = ['user', 'author', 'librarian'];
+  String _selectedRole = 'user'; // Initialize with a default role
+
   bool _isLoading = false;
   String? _errorMessage;
 
-  Future<void> _login() async {
+  Future<void> _register() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      final userCredential = await _auth.signInWithEmailAndPassword(
+      final userCredential = await _auth.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
 
-      final user = userCredential.user;
-      if (user != null) {
+      if (userCredential.user != null) {
+        // Save user data with role in Firestore
+        await _firestore.collection('users').doc(userCredential.user!.uid).set({
+          'email': _emailController.text.trim(),
+          'role': _selectedRole, // Use the selected role
+          'createdAt': FieldValue.serverTimestamp(), // Optional: Add a timestamp
+        });
+
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('isLoggedIn', true);
-        widget.onLoginSuccess();
+
+        widget.onRegisterSuccess();
       }
     } on FirebaseAuthException catch (e) {
       setState(() {
-        // You can add more specific error messages here if desired
-        // e.g., if (e.code == 'user-not-found') _errorMessage = 'No user found for that email.';
-        _errorMessage = e.message;
+        // Provide more user-friendly messages for common errors
+        if (e.code == 'weak-password') {
+          _errorMessage = 'The password provided is too weak.';
+        } else if (e.code == 'email-already-in-use') {
+          _errorMessage = 'An account already exists for that email.';
+        } else if (e.code == 'invalid-email') {
+          _errorMessage = 'The email address is not valid.';
+        } else {
+          _errorMessage = e.message;
+        }
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'An unexpected error occurred: ${e.toString()}';
       });
     } finally {
       setState(() {
@@ -96,7 +119,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    'Welcome Back!',
+                    'Create Your Account',
                     style: theme.textTheme.headlineMedium?.copyWith(
                       color: theme.colorScheme.onPrimary,
                       fontWeight: FontWeight.bold,
@@ -133,7 +156,7 @@ class _LoginPageState extends State<LoginPage> {
                           const SizedBox(height: 20),
                           TextField(
                             controller: _passwordController,
-                            obscureText: true, // Kept as original, no toggle
+                            obscureText: true,
                             decoration: InputDecoration(
                               labelText: 'Password',
                               hintText: 'Enter your password',
@@ -147,6 +170,37 @@ class _LoginPageState extends State<LoginPage> {
                               contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                             ),
                           ),
+                          const SizedBox(height: 20),
+
+                          // Role selection dropdown
+                          DropdownButtonFormField<String>(
+                            value: _selectedRole,
+                            decoration: InputDecoration(
+                              labelText: 'Select Role',
+                              prefixIcon: const Icon(Icons.assignment_ind_outlined), // Added icon for role
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                              filled: true,
+                              fillColor: theme.colorScheme.surfaceVariant.withOpacity(0.5),
+                              contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                            ),
+                            dropdownColor: theme.colorScheme.surface, // Background color for dropdown menu
+                            style: TextStyle(color: theme.colorScheme.onSurface), // Text color for dropdown items
+                            items: _roles.map((role) {
+                              return DropdownMenuItem(
+                                value: role,
+                                child: Text(role.toUpperCase()),
+                              );
+                            }).toList(),
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedRole = value!;
+                              });
+                            },
+                          ),
+
                           const SizedBox(height: 24), // Increased spacing
                           if (_errorMessage != null)
                             Padding(
@@ -161,7 +215,7 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                             ),
                           ElevatedButton(
-                            onPressed: _isLoading ? null : _login,
+                            onPressed: _isLoading ? null : _register,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: theme.colorScheme.primary, // Use primary color
                               foregroundColor: theme.colorScheme.onPrimary, // Text color on primary
@@ -182,7 +236,7 @@ class _LoginPageState extends State<LoginPage> {
                                     ),
                                   )
                                 : Text(
-                                    'Login',
+                                    'Register',
                                     style: theme.textTheme.titleMedium?.copyWith(
                                       color: theme.colorScheme.onPrimary,
                                       fontWeight: FontWeight.bold,
@@ -198,23 +252,14 @@ class _LoginPageState extends State<LoginPage> {
                     onPressed: _isLoading
                         ? null
                         : () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => RegisterPage(
-                                  onRegisterSuccess: () {
-                                    Navigator.pop(context); // Go back to Login after successful registration
-                                  },
-                                ),
-                              ),
-                            );
+                            Navigator.pop(context); // Go back to Login
                           },
                     style: TextButton.styleFrom(
                       foregroundColor: theme.colorScheme.onPrimary, // Text color for contrast
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                     ),
                     child: Text(
-                      "Don't have an account? Sign Up",
+                      "Already have an account? Login",
                       style: TextStyle(
                         color: theme.colorScheme.onPrimary.withOpacity(0.8),
                         fontWeight: FontWeight.w600,

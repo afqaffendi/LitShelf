@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "942534196849",
+    "project_id": "litshelf-56303",
+    "storage_bucket": "litshelf-56303.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:942534196849:android:b67598f6443707e2f665d0",
+        "android_client_info": {
+          "package_name": "com.example.litshelf2"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCrJp474ieT8OC8s7XH2XJ-uMPCd1caxlA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -11,8 +11,7 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
   final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
   final isDarkMode = prefs.getBool('isDarkMode') ?? false;
-  final role = prefs.getString('role') ?? ''; // Add this line
-
+  final role = prefs.getString('role') ?? ''; 
   runApp(MyApp(
     initialIsLoggedIn: isLoggedIn,
     initialIsDarkMode: isDarkMode,
@@ -23,7 +22,7 @@ void main() async {
 class MyApp extends StatefulWidget {
   final bool initialIsLoggedIn;
   final bool initialIsDarkMode;
-  final String initialRole; // Add this line
+  final String initialRole;
 
   const MyApp({
     super.key,

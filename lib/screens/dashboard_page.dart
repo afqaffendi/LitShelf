@@ -4,11 +4,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:litshelf2/screens/view_users_page.dart';
 import 'package:shimmer/shimmer.dart';
 import 'manage_account_page.dart';
-
 import 'ebook_list_page.dart';
-import 'firestore_service.dart';
+import '../services/firestore_service.dart';
 import 'profile_page.dart';
 import 'add_book_page.dart';
+import 'author_books_section.dart';
 
 class DashboardPage extends StatefulWidget {
   final String role;
@@ -307,36 +307,108 @@ class _DashboardHomeView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return RefreshIndicator( // HCI: Pull-to-refresh for updating wishlist
-      onRefresh: () async {
-        await Future.delayed(const Duration(milliseconds: 500)); // Simulate refresh
-      },
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(), // Allows pull-to-refresh even if content is small
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _WelcomeHeader(userName: currentUser?.displayName),
-            const SizedBox(height: 24),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: Text(
-                "Your Wishlist ⭐️",
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onSurface,
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUser?.uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final userRole = (snapshot.data?.data() as Map<String, dynamic>?)?['role'] as String? ?? 'user';
+        final isAuthor = userRole.toLowerCase() == 'author';
+        final isLibrarian = userRole.toLowerCase() == 'librarian';
+
+        return RefreshIndicator(
+          onRefresh: () async {
+            await Future.delayed(const Duration(milliseconds: 500));
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _WelcomeHeader(userName: currentUser?.displayName),
+                const SizedBox(height: 24),
+                if (isLibrarian) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: Text(
+                      "Manage Users 👥",
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
                     ),
-              ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Card(
+                      margin: EdgeInsets.zero,
+                      child: Padding(
+                        padding: EdgeInsets.all(16.0),
+                        child: ManageAccountPage(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: Text(
+                      "All Books 📚",
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16.0),
+                    child: EbookListPage(),
+                  ),
+                ] else if (isAuthor) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: Text(
+                      "Your Books 📚",
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  AuthorBooksSection(
+                    firestoreService: firestoreService,
+                    userId: currentUser?.uid,
+                  ),
+                ] else ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: Text(
+                      "Your Wishlist ⭐️",
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _WishlistSection(
+                    firestoreService: firestoreService,
+                    userId: currentUser?.uid,
+                    onNavigateToExplore: onNavigateToExplore,
+                  ),
+                ],
+              ],
             ),
-            const SizedBox(height: 16),
-            _WishlistSection(
-              firestoreService: firestoreService,
-              userId: currentUser?.uid,
-              onNavigateToExplore: onNavigateToExplore, // Pass callback
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -361,11 +433,32 @@ class _WelcomeHeader extends StatelessWidget {
                 ),
           ),
           const SizedBox(height: 4),
-          Text(
-            "What do you want to read today?",
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7),
-                ),
+          StreamBuilder<DocumentSnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('users')
+                .doc(userName != null ? FirebaseAuth.instance.currentUser?.uid : null)
+                .snapshots(),
+            builder: (context, snapshot) {
+              final userRole = (snapshot.data?.data() as Map<String, dynamic>?)?['role'] as String? ?? 'user';
+              final isAuthor = userRole.toLowerCase() == 'author';
+              final isLibrarian = userRole.toLowerCase() == 'librarian';
+              
+              String message;
+              if (isLibrarian) {
+                message = "Manage and oversee the library system";
+              } else if (isAuthor) {
+                message = "Share your literary works with the world!";
+              } else {
+                message = "What do you want to read today?";
+              }
+              
+              return Text(
+                message,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7),
+                    ),
+              );
+            },
           ),
         ],
       ),
@@ -753,6 +846,95 @@ class _WishlistShimmerLoader extends StatelessWidget {
     );
   }
 }
+
+// BookCard implementation moved to book_card.dart
+}
+
+class AuthorBooksSection extends StatelessWidget {
+  final FirestoreService firestoreService;
+  final String? userId;
+
+  const AuthorBooksSection({
+    super.key,
+    required this.firestoreService,
+    required this.userId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (userId == null) {
+      return Container(
+        padding: const EdgeInsets.all(24.0),
+        margin: const EdgeInsets.symmetric(horizontal: 16.0),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceVariant,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
+          ),
+        ),
+        child: Center(
+          child: Text(
+            "Please log in to view your uploaded books.",
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
+    return StreamBuilder<List<Book>>(
+      stream: firestoreService.getBooksByAuthor(userId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const _WishlistShimmerLoader();
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text('Error loading uploaded books.'));
+        }
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Text("You haven't uploaded any books yet."),
+          ));
+        }
+
+        final books = snapshot.data!;
+        return ListView.builder(
+          itemCount: books.length,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          itemBuilder: (context, index) {
+            final book = books[index];
+            return _BookCard(
+              key: ValueKey(book.id),
+              title: book.title,
+              author: book.author,
+              description: book.description,
+              coverUrl: book.coverUrl,
+              bookId: book.id,
+              onEdit: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => EditBookPage(
+                    bookId: book.id,
+                    currentTitle: book.title,
+                    currentAuthor: book.author,
+                    currentDescription: book.description,
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
 
 class _EmptyWishlist extends StatelessWidget {
   final VoidCallback onNavigateToExplore; // New field for the callback

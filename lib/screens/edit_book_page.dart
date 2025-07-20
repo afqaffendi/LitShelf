@@ -1,18 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../models/book.dart';
 
 class EditBookPage extends StatefulWidget {
-  final String bookId;
-  final String currentTitle;
-  final String currentAuthor;
-  final String currentDescription; // Added for description
+  final Book book;
 
   const EditBookPage({
     Key? key,
-    required this.bookId,
-    required this.currentTitle,
-    required this.currentAuthor,
-    required this.currentDescription, // Make sure to pass this
+    required this.book,
   }) : super(key: key);
 
   @override
@@ -29,9 +24,9 @@ class _EditBookPageState extends State<EditBookPage> {
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: widget.currentTitle);
-    _authorController = TextEditingController(text: widget.currentAuthor);
-    _descriptionController = TextEditingController(text: widget.currentDescription); // Initialize with current description
+    _titleController = TextEditingController(text: widget.book.title);
+    _authorController = TextEditingController(text: widget.book.author);
+    _descriptionController = TextEditingController(text: widget.book.description);
   }
 
   Future<void> _updateBook() async {
@@ -43,8 +38,8 @@ class _EditBookPageState extends State<EditBookPage> {
 
     try {
       await FirebaseFirestore.instance
-          .collection('ebooks')
-          .doc(widget.bookId)
+          .collection('books')
+          .doc(widget.book.id)
           .update({
         'title': _titleController.text.trim(),
         'author': _authorController.text.trim(),

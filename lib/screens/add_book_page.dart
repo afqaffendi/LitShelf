@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class AddBookPage extends StatefulWidget {
   const AddBookPage({super.key});
@@ -11,7 +12,7 @@ class AddBookPage extends StatefulWidget {
 class _AddBookPageState extends State<AddBookPage> {
   final _titleController = TextEditingController();
   final _authorController = TextEditingController();
-  final _descriptionController = TextEditingController(); // NEW
+  final _descriptionController = TextEditingController(); 
 
   bool _isLoading = false;
   String? _message;
@@ -32,11 +33,20 @@ class _AddBookPageState extends State<AddBookPage> {
     });
 
     try {
-      await FirebaseFirestore.instance.collection('books').add({
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        setState(() {
+          _message = "❌ You must be logged in to add books.";
+        });
+        return;
+      }
+
+      await FirebaseFirestore.instance.collection('ebooks').add({
         'title': _titleController.text.trim(),
         'author': _authorController.text.trim(),
-        'description': _descriptionController.text.trim(), // NEW
+        'description': _descriptionController.text.trim(),
         'timestamp': Timestamp.now(),
+        'uploadedBy': user.uid,
       });
 
       setState(() {

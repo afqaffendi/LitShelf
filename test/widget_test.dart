@@ -14,8 +14,12 @@ void main() {
   });
 
   testWidgets('MyApp builds and shows initial screen', (WidgetTester tester) async {
-    // 🟢 Provide the required isLoggedIn parameter!
-    await tester.pumpWidget(MyApp(isLoggedIn: false));
+    // 🟢 Provide the required parameters!
+    await tester.pumpWidget(MyApp(
+      initialIsLoggedIn: false,
+      initialIsDarkMode: false,
+      initialRole: '',
+    ));
 
     // Check MaterialApp exists
     expect(find.byType(MaterialApp), findsOneWidget);

@@ -3,12 +3,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:litshelf2/screens/view_users_page.dart';
 import 'package:shimmer/shimmer.dart';
-import 'manage_account_page.dart';
 import 'ebook_list_page.dart';
 import '../services/firestore_service.dart';
 import 'profile_page.dart';
 import 'add_book_page.dart';
 import 'author_books_section.dart';
+import '../models/book.dart';
+import 'edit_book_page.dart';
+import 'book_card.dart';
 
 class DashboardPage extends StatefulWidget {
   final String role;
@@ -126,8 +128,12 @@ class _DashboardPageState extends State<DashboardPage> {
           currentUser: _currentUser,
           onNavigateToExplore: _navigateToExplore, // Pass callback
         ),
-        const EbookListPage(),
-        const ManageAccountPage(),
+        const Scaffold(
+          body: SafeArea(
+            child: EbookListPage(),
+          ),
+        ),
+        _LibrarianAccountsView(),
         ProfilePage(
           isDarkMode: widget.isDarkMode,
           onToggleDarkMode: widget.onToggleDarkMode,
@@ -162,7 +168,11 @@ class _DashboardPageState extends State<DashboardPage> {
           currentUser: _currentUser,
           onNavigateToExplore: _navigateToExplore, // Pass callback
         ),
-        const EbookListPage(),
+        const Scaffold(
+          body: SafeArea(
+            child: EbookListPage(),
+          ),
+        ),
         ProfilePage(
           isDarkMode: widget.isDarkMode,
           onToggleDarkMode: widget.onToggleDarkMode,
@@ -333,43 +343,7 @@ class _DashboardHomeView extends StatelessWidget {
                 _WelcomeHeader(userName: currentUser?.displayName),
                 const SizedBox(height: 24),
                 if (isLibrarian) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                    child: Text(
-                      "Manage Users 👥",
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.onSurface,
-                          ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16.0),
-                    child: Card(
-                      margin: EdgeInsets.zero,
-                      child: Padding(
-                        padding: EdgeInsets.all(16.0),
-                        child: ManageAccountPage(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                    child: Text(
-                      "All Books 📚",
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.onSurface,
-                          ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16.0),
-                    child: EbookListPage(),
-                  ),
+                  _LibrarianDashboardSection(),
                 ] else if (isAuthor) ...[
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -420,45 +394,85 @@ class _WelcomeHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24.0, 16.0, 24.0, 8.0), // Adjust padding
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.all(20.0),
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.outline.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Row(
         children: [
-          Text(
-            'Hello, ${userName ?? 'Reader'} 👋', // HCI: Personalization, use a default if name is null
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onBackground, // Use onBackground for main text
-                ),
+          CircleAvatar(
+            radius: 24,
+            backgroundColor: colorScheme.primary,
+            child: Icon(
+              Icons.person,
+              color: colorScheme.onPrimary,
+              size: 24,
+            ),
           ),
-          const SizedBox(height: 4),
-          StreamBuilder<DocumentSnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('users')
-                .doc(userName != null ? FirebaseAuth.instance.currentUser?.uid : null)
-                .snapshots(),
-            builder: (context, snapshot) {
-              final userRole = (snapshot.data?.data() as Map<String, dynamic>?)?['role'] as String? ?? 'user';
-              final isAuthor = userRole.toLowerCase() == 'author';
-              final isLibrarian = userRole.toLowerCase() == 'librarian';
-              
-              String message;
-              if (isLibrarian) {
-                message = "Manage and oversee the library system";
-              } else if (isAuthor) {
-                message = "Share your literary works with the world!";
-              } else {
-                message = "What do you want to read today?";
-              }
-              
-              return Text(
-                message,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7),
-                    ),
-              );
-            },
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Hi, ${userName ?? 'Reader'}!',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onSurface,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                StreamBuilder<DocumentSnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(userName != null ? FirebaseAuth.instance.currentUser?.uid : null)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) {
+                      return Text(
+                        "Welcome back!",
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurface.withValues(alpha: 0.7),
+                        ),
+                      );
+                    }
+                    
+                    final userRole = (snapshot.data?.data() as Map<String, dynamic>?)?['role'] as String? ?? 'user';
+                    final isLibrarian = userRole.toLowerCase() == 'librarian';
+                    
+                    String message;
+                    if (isLibrarian) {
+                      message = "Library Admin";
+                    } else {
+                      message = "Happy Reading!";
+                    }
+                    
+                    return Text(
+                      message,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -515,7 +529,7 @@ class _WishlistSection extends StatelessWidget {
           return _EmptyWishlist(onNavigateToExplore: onNavigateToExplore); // Pass callback
         }
 
-        return StreamBuilder<QuerySnapshot>(
+        return StreamBuilder<List<Book>>(
           stream: firestoreService.getEbooksByIds(wishlistIds),
           builder: (context, bookSnapshot) {
             if (bookSnapshot.connectionState == ConnectionState.waiting) {
@@ -532,11 +546,11 @@ class _WishlistSection extends StatelessWidget {
                 ),
               ));
             }
-            if (!bookSnapshot.hasData || bookSnapshot.data!.docs.isEmpty) {
+            if (!bookSnapshot.hasData || bookSnapshot.data!.isEmpty) {
               return _EmptyWishlist(onNavigateToExplore: onNavigateToExplore); // Pass callback
             }
 
-            final ebooks = bookSnapshot.data!.docs;
+            final ebooks = bookSnapshot.data!;
             return ListView.builder(
               itemCount: ebooks.length,
               shrinkWrap: true,
@@ -561,7 +575,7 @@ class _WishlistSection extends StatelessWidget {
 }
 
 class _WishlistCard extends StatelessWidget {
-  final DocumentSnapshot ebook;
+  final Book ebook;
   final String userId;
   final FirestoreService firestoreService; // Add FirestoreService here
 
@@ -574,10 +588,9 @@ class _WishlistCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final data = ebook.data() as Map<String, dynamic>;
-    final title = data['title'] ?? 'No Title';
-    final author = data['author'] ?? 'Unknown Author';
-    final coverUrl = data['coverUrl'];
+    final title = ebook.title;
+    final author = ebook.author;
+    final coverUrl = ebook.coverUrl;
 
     return Dismissible(
       key: key!, // Use the key passed from the parent for Dismissible
@@ -848,7 +861,6 @@ class _WishlistShimmerLoader extends StatelessWidget {
 }
 
 // BookCard implementation moved to book_card.dart
-}
 
 class AuthorBooksSection extends StatelessWidget {
   final FirestoreService firestoreService;
@@ -909,7 +921,7 @@ class AuthorBooksSection extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           itemBuilder: (context, index) {
             final book = books[index];
-            return _BookCard(
+            return BookCard(
               key: ValueKey(book.id),
               title: book.title,
               author: book.author,
@@ -920,10 +932,7 @@ class AuthorBooksSection extends StatelessWidget {
                 context,
                 MaterialPageRoute(
                   builder: (context) => EditBookPage(
-                    bookId: book.id,
-                    currentTitle: book.title,
-                    currentAuthor: book.author,
-                    currentDescription: book.description,
+                    book: book,
                   ),
                 ),
               ),
@@ -997,6 +1006,404 @@ class _EmptyWishlist extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _LibrarianDashboardSection extends StatelessWidget {
+  const _LibrarianDashboardSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Quick Stats Cards
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          child: Text(
+            "Dashboard Overview",
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: colorScheme.onSurface,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 120,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            children: [
+              _DashboardCard(
+                icon: Icons.people_outline,
+                title: "Users",
+                subtitle: "Manage accounts",
+                color: colorScheme.primary,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ViewUsersPage()),
+                  );
+                },
+              ),
+              const SizedBox(width: 16),
+              _DashboardCard(
+                icon: Icons.library_books_outlined,
+                title: "Books",
+                subtitle: "All library books",
+                color: colorScheme.secondary,
+                onTap: () {
+                  // Navigate to books management
+                },
+              ),
+              const SizedBox(width: 16),
+              _DashboardCard(
+                icon: Icons.add_circle_outline,
+                title: "Add Book",
+                subtitle: "Add new books",
+                color: colorScheme.tertiary,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AddBookPage()),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 32),
+        
+        // User Management Section
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          child: Text(
+            "User Management",
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: colorScheme.onSurface,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 24),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: colorScheme.outline.withValues(alpha: 0.2),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.admin_panel_settings,
+                      color: colorScheme.primary,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      "User Administration",
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const ViewUsersPage()),
+                          );
+                        },
+                        icon: const Icon(Icons.people),
+                        label: const Text("View Users"),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Advanced admin features coming soon!'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.settings),
+                        label: const Text("Settings"),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 32),
+        
+        // Books Management Section
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          child: Text(
+            "Books Library",
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: colorScheme.onSurface,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          height: 200, // Smaller, fixed height
+          margin: const EdgeInsets.symmetric(horizontal: 24),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: colorScheme.outline.withValues(alpha: 0.2),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.library_books,
+                      color: colorScheme.secondary,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      "Books Library",
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.book_outlined,
+                          size: 48,
+                          color: colorScheme.onSurface.withValues(alpha: 0.5),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          "View all books in the Discover tab",
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurface.withValues(alpha: 0.7),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+}
+
+class _DashboardCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _DashboardCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return SizedBox(
+      width: 140,
+      child: Material(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  icon,
+                  color: color,
+                  size: 28,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  title,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface.withValues(alpha: 0.7),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LibrarianAccountsView extends StatelessWidget {
+  const _LibrarianAccountsView();
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Account Management',
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Expanded(
+              child: GridView.count(
+                crossAxisCount: 2,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                children: [
+                  _AccountCard(
+                    icon: Icons.people_outline,
+                    title: 'View Users',
+                    subtitle: 'See all users',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const ViewUsersPage()),
+                      );
+                    },
+                  ),
+                  _AccountCard(
+                    icon: Icons.library_books_outlined,
+                    title: 'Manage Books',
+                    subtitle: 'Add & edit books',
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Book management coming soon!'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AccountCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _AccountCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 48,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: Theme.of(context).textTheme.bodySmall,
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

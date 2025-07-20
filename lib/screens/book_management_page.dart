@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:litshelf2/screens/edit_book_page.dart'; // Ensure this import is correct
+import '../models/book.dart';
 
 class ManageBooksPage extends StatelessWidget {
   const ManageBooksPage({super.key});
@@ -129,10 +130,12 @@ class ManageBooksPage extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (_) => EditBookPage(
-                          bookId: book.id,
-                          currentTitle: title,
-                          currentAuthor: author,
-                          currentDescription: description,
+                          book: Book(
+                            id: book.id,
+                            title: title,
+                            author: author,
+                            description: description,
+                          ),
                         ),
                       ),
                     );
@@ -220,10 +223,12 @@ class ManageBooksPage extends StatelessWidget {
                               context,
                               MaterialPageRoute(
                                 builder: (_) => EditBookPage(
-                                  bookId: book.id,
-                                  currentTitle: title,
-                                  currentAuthor: author,
-                                  currentDescription: description,
+                                  book: Book(
+                                    id: book.id,
+                                    title: title,
+                                    author: author,
+                                    description: description,
+                                  ),
                                 ),
                               ),
                             );

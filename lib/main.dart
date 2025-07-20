@@ -1,17 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'firebase_options.dart';
 import 'screens/login_page.dart';
 import 'screens/dashboard_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    print('Firebase initialized successfully');
+  } catch (e) {
+    print('Firebase initialization error: $e');
+  }
 
   final prefs = await SharedPreferences.getInstance();
   final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
   final isDarkMode = prefs.getBool('isDarkMode') ?? false;
   final role = prefs.getString('role') ?? ''; 
+  
+  print('App starting with: isLoggedIn=$isLoggedIn, role=$role');
+  
   runApp(MyApp(
     initialIsLoggedIn: isLoggedIn,
     initialIsDarkMode: isDarkMode,
